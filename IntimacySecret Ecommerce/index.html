@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en" x-data="shopApp()" class="scroll-smooth">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Intimacy Secret — Lingerie Boutique</title>
+  <meta name="description" content="Intimacy Secret — a lightweight single‑page lingerie shop with cart, checkout, and optional Netlify Identity login. Built with HTML5, CSS, and Alpine.js."/>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Optional Netlify Identity (safe if not on Netlify; everything still works) -->
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <style>
+    :root{
+      --bg:#0f0f12; --card:#17171c; --muted:#9a9aa3; --text:#f7f7fb; --accent:#ff3d7f; --accent-2:#ffd1e3;
+      --border:#232333; --field:#1a1a22;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%}
+    body{font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; background:var(--bg); color:var(--text)}
+    a{color:inherit;text-decoration:none}
+    .container{max-width:1100px;margin:0 auto;padding:0 1rem}
+    header{position:sticky;top:0;z-index:40;background:#101015e6;backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+    nav{display:flex;gap:.8rem;align-items:center;padding:.7rem 0}
+    .brand{display:flex;gap:.6rem;align-items:center;font-weight:800;letter-spacing:.3px}
+    .badge{width:26px;height:26px;border-radius:9px;background:radial-gradient(120% 120% at 100% 0%, var(--accent) 0%, #7c2a8a 58%, #1f1f25 100%); box-shadow:0 0 0 2px #ffffff14 inset}
+    .spacer{flex:1}
+
+    .field{display:flex;align-items:center;gap:.5rem;background:var(--field);border:1px solid var(--border);border-radius:12px;padding:.45rem .6rem}
+    .field input{background:transparent;border:0;outline:none;color:var(--text);width:220px}
+
+    .btn{display:inline-flex;align-items:center;gap:.5rem;border:1px solid var(--border);background:#15151b;border-radius:12px;padding:.5rem .9rem;color:var(--text);cursor:pointer}
+    .btn:hover{border-color:#3a3a4a}
+    .btn-primary{background:linear-gradient(180deg,var(--accent),#cc2f6a);border:0}
+    .btn-ghost{background:transparent}
+    .count{display:inline-flex;min-width:1.35rem;height:1.35rem;align-items:center;justify-content:center;border-radius:999px;background:var(--accent-2);color:#3a0b1f;font-weight:800;font-size:.78rem}
+
+    .hero{padding:1.2rem 0 1rem;display:grid;grid-template-columns:1.1fr .9fr;gap:1rem}
+    .hero-card{background:linear-gradient(160deg,#1a1a22,#121217 60%);border:1px solid var(--border);border-radius:18px;padding:1rem}
+    .hero h1{font-size:1.9rem;margin:.2rem 0 .5rem}
+    .muted{color:var(--muted)}
+
+    .filters{display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem}
+    select{appearance:none;background:#181820;border:1px solid var(--border);color:var(--text);border-radius:12px;padding:.55rem .9rem;min-width:140px}
+
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin:1rem 0 2rem}
+    @media (max-width:980px){.hero{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:520px){.grid{grid-template-columns:1fr}.field input{width:140px}}
+
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+    .thumb{aspect-ratio:4/3;background:linear-gradient(135deg,#241823,#1b1b22);display:grid;place-items:center}
+    .card-body{padding:.8rem}
+    .title{font-weight:700}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+    .price{font-weight:800}
+
+    .drawer{position:fixed;inset:0 0 0 auto;max-width:380px;width:100%;background:#121217;border-left:1px solid var(--border);transform:translateX(100%);transition:transform .25s ease;z-index:60;display:flex;flex-direction:column}
+    .drawer.open{transform:translateX(0)}
+    .drawer header{position:sticky;top:0;background:#121217;border-bottom:1px solid var(--border)}
+    .drawer .body{padding:1rem;display:flex;flex-direction:column;gap:.8rem;overflow:auto}
+    .cart-item{display:grid;grid-template-columns:56px 1fr auto;gap:.6rem;align-items:center;background:#17171c;padding:.55rem;border-radius:12px}
+    .cart-item .thumb{aspect-ratio:1/1}
+
+    dialog{border:1px solid var(--border);background:#14141a;border-radius:16px;color:var(--text);padding:1rem;max-width:480px;width:92%}
+    dialog::backdrop{background:#0008}
+
+    .footer{padding:1.3rem 0;color:#a7a7b2;border-top:1px solid var(--border);background:#0f0f12}
+  </style>
+</head>
+<body @keyup.escape="cartOpen=false; authOpen=false; checkoutOpen=false">
+  <!-- NAV -->
+  <header>
+    <div class="container">
+      <nav>
+        <div class="brand">
+          <span class="badge"></span>
+          <span>Intimacy Secret</span>
+        </div>
+        <div class="spacer"></div>
+        <label class="field" aria-label="Search products">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input x-model="query" type="search" placeholder="Search bras, sets…" />
+        </label>
+        <button class="btn" @click="openAuth()" aria-label="Login / Register">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <template x-if="!user.loggedIn"><span>Login</span></template>
+          <template x-if="user.loggedIn"><span x-text="user.name || user.email"></span></template>
+        </button>
+        <button class="btn" @click="cartOpen=true" aria-label="Open cart">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"></circle><circle cx="19" cy="21" r="1"></circle><path d="M2.05 2.05h2l2.4 12.3a2 2 0 0 0 2 1.65h8.7a2 2 0 0 0 2-1.65l1.2-7.2H6.6"></path></svg>
+          <span class="count" x-text="cartQty()"></span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <main class="container">
+    <section class="hero">
+      <div class="hero-card">
+        <div class="row"><div class="btn btn-ghost" style="pointer-events:none">New • Cozy Satin</div><div></div></div>
+        <h1>Feel confident. Look exquisite.</h1>
+        <p class="muted">Lightweight single-page shop with real cart & checkout. Optional Netlify Identity accounts. No bloat — just beauty.</p>
+        <div class="filters" aria-label="Filters">
+          <select x-model="filters.category" title="Category">
+            <option value="">All categories</option>
+            <option value="bra">Bras</option>
+            <option value="panty">Panties</option>
+            <option value="set">Sets</option>
+            <option value="sleep">Sleepwear</option>
+          </select>
+          <select x-model="filters.size" title="Size">
+            <option value="">Any size</option>
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option>
+          </select>
+          <select x-model="filters.color" title="Color">
+            <option value="">Any color</option>
+            <option>Black</option><option>Rose</option><option>Ivory</option><option>Wine</option>
+          </select>
+          <button class="btn" @click="resetFilters()">Reset</button>
+        </div>
+      </div>
+      <div class="hero-card">
+        <strong>Affiliate notice</strong>
+        <p class="muted">Some items link to partner stores. We may earn a commission from qualifying purchases. Prices and availability may change.</p>
+      </div>
+    </section>
+
+    <!-- GRID -->
+    <section aria-labelledby="grid-heading">
+      <h2 id="grid-heading" style="position:absolute;left:-9999px">Products</h2>
+      <div class="grid">
+        <template x-for="p in filtered()" :key="p.id">
+          <article class="card" :aria-label="p.name">
+            <div class="thumb">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.9"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 15l5-5 4 4 3-3 8 7"/></svg>
+            </div>
+            <div class="card-body">
+              <div class="row" style="margin-bottom:.3rem">
+                <div class="title" x-text="p.name"></div>
+                <span class="btn btn-ghost" style="pointer-events:none" x-text="p.affiliate ? 'Affiliate' : 'In‑stock'"></span>
+              </div>
+              <div class="muted" style="min-height:2.6em" x-text="p.color + ' · ' + p.size"></div>
+              <div class="row" style="margin-top:.5rem">
+                <div class="price" x-text="format(p.price)"></div>
+                <template x-if="!p.affiliate">
+                  <button class="btn btn-primary" @click="add(p)">Add</button>
+                </template>
+                <template x-if="p.affiliate">
+                  <a class="btn" :href="p.url" target="_blank" rel="noopener nofollow sponsored" @click="trackAffiliate(p)">Buy at Partner</a>
+                </template>
+              </div>
+            </div>
+          </article>
+        </template>
+      </div>
+    </section>
+
+    <!-- NEWSLETTER (Netlify Forms ready) -->
+    <section style="background:#121217;border:1px dashed var(--border);padding:1rem;border-radius:12px">
+      <form name="newsletter" netlify>
+        <div class="row" style="gap:.8rem;flex-wrap:wrap">
+          <div>
+            <strong>Exclusive drops & fit tips</strong>
+            <div class="muted">Get 1–2 emails per month. Unsubscribe anytime.</div>
+          </div>
+          <div class="field">
+            <input type="email" name="email" required placeholder="you@example.com" aria-label="Email"/>
+            <button class="btn btn-primary" type="submit">Subscribe</button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <footer class="footer">
+      <div class="row">
+        <div>© <span x-text="new Date().getFullYear()"></span> Intimacy Secret. All rights reserved.</div>
+        <small class="muted">Demo store — no real orders are processed here.</small>
+      </div>
+    </footer>
+  </main>
+
+  <!-- CART DRAWER -->
+  <aside class="drawer" :class="cartOpen ? 'open' : ''" aria-label="Cart">
+    <header class="row" style="padding:.9rem 1rem">
+      <strong>Your Basket</strong>
+      <div class="spacer"></div>
+      <button class="btn" @click="cartOpen=false">Close</button>
+    </header>
+    <div class="body">
+      <template x-if="cart.length===0"><p class="muted">Your basket is empty.</p></template>
+      <template x-for="(item, i) in cart" :key="item.id + '-' + i">
+        <div class="cart-item">
+          <div class="thumb"></div>
+          <div>
+            <div class="row"><strong x-text="item.name"></strong><span class="muted" x-text="item.color + ' · ' + item.size"></span></div>
+            <div class="row" style="margin-top:.3rem">
+              <div class="muted">Qty
+                <input type="number" min="1" max="10" style="width:60px;background:#111;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:.2rem .4rem" x-model.number="item.qty" @change="saveCart()">
+              </div>
+              <div class="price" x-text="format(item.price*item.qty)"></div>
+            </div>
+          </div>
+          <button class="btn" aria-label="Remove" @click="remove(i)">×</button>
+        </div>
+      </template>
+    </div>
+    <div style="padding:1rem;border-top:1px solid var(--border)">
+      <div class="row" style="margin-bottom:.6rem"><span>Subtotal</span><strong x-text="format(total())"></strong></div>
+      <button class="btn btn-primary" style="width:100%" @click="openCheckout()">Checkout</button>
+      <div class="muted" style="margin-top:.5rem;font-size:.85rem">Taxes & shipping calculated at checkout.</div>
+    </div>
+  </aside>
+
+  <!-- AUTH MODAL (Login / Register) -->
+  <dialog x-ref="authDialog" x-show="authOpen" @close="authOpen=false">
+    <form method="dialog">
+      <header class="row" style="margin-bottom:.6rem"><strong x-text="authTab==='login' ? 'Login' : 'Create account'"></strong><div class="spacer"></div><button class="btn">✕</button></header>
+    </form>
+    <div class="row" style="gap:.5rem;margin-bottom:.6rem">
+      <button class="btn" :class="authTab==='login' ? 'btn-primary':''" @click="authTab='login'">Login</button>
+      <button class="btn" :class="authTab==='register' ? 'btn-primary':''" @click="authTab='register'">Register</button>
+    </div>
+    <template x-if="authTab==='login'">
+      <div>
+        <label class="muted">Email</label>
+        <input type="email" x-model="login.email" placeholder="you@example.com" required>
+        <label class="muted">Password</label>
+        <input type="password" x-model="login.password" placeholder="••••••••" required>
+        <button class="btn btn-primary" style="width:100%" @click="loginUser">Login</button>
+      </div>
+    </template>
+    <template x-if="authTab==='register'">
+      <div>
+        <label class="muted">Name</label>
+        <input type="text" x-model="register.name" placeholder="Your name" required>
+        <label class="muted">Email</label>
+        <input type="email" x-model="register.email" placeholder="you@example.com" required>
+        <label class="muted">Password</label>
+        <input type="password" x-model="register.password" placeholder="Create a password" required>
+        <button class="btn btn-primary" style="width:100%" @click="registerUser">Create account</button>
+      </div>
+    </template>
+    <template x-if="user.loggedIn">
+      <div style="margin-top:1rem" class="muted">Logged in as <strong x-text="user.email"></strong>. <button class="btn" @click="logoutUser" style="margin-left:.5rem">Logout</button></div>
+    </template>
+  </dialog>
+
+  <!-- CHECKOUT MODAL -->
+  <dialog x-ref="checkoutDialog" x-show="checkoutOpen" @close="checkoutOpen=false">
+    <form method="dialog">
+      <header class="row" style="margin-bottom:.6rem"><strong>Checkout</strong><div class="spacer"></div><button class="btn">✕</button></header>
+    </form>
+    <template x-if="cart.length===0"><p class="muted">Your basket is empty.</p></template>
+    <template x-if="cart.length>0">
+      <div>
+        <h3 style="margin:.4rem 0">Shipping</h3>
+        <div class="row" style="gap:.6rem;flex-wrap:wrap">
+          <input style="flex:1" placeholder="Full name" x-model="shipping.name" required>
+          <input style="flex:1" placeholder="Email" type="email" x-model="shipping.email" required>
+        </div>
+        <input placeholder="Address" x-model="shipping.address" required>
+        <div class="row" style="gap:.6rem;flex-wrap:wrap">
+          <input style="flex:2" placeholder="City" x-model="shipping.city" required>
+          <input style="flex:1" placeholder="Postcode" x-model="shipping.postcode" required>
+          <input style="flex:1" placeholder="Country" x-model="shipping.country" value="UK" required>
+        </div>
+
+        <h3 style="margin:.8rem 0 .3rem">Order summary</h3>
+        <div class="muted" style="max-height:120px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:.6rem">
+          <template x-for="i in cart" :key="i.id">
+            <div class="row"><span x-text="i.qty + '× ' + i.name"></span><span x-text="format(i.qty*i.price)"></span></div>
+          </template>
+          <div class="row" style="margin-top:.4rem"><strong>Subtotal</strong><strong x-text="format(total())"></strong></div>
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;margin-top:.8rem" @click="placeOrder">Place order (demo)</button>
+        <div class="muted" style="margin-top:.4rem">This demo does not charge your card. Integrate Stripe or a provider to accept payments.</div>
+      </div>
+    </template>
+  </dialog>
+
+  <script>
+    function shopApp(){
+      const CART_KEY = 'intimacysecret-cart-v1';
+      const USER_KEY = 'intimacysecret-user-v1';
+      const savedCart = JSON.parse(localStorage.getItem(CART_KEY) || '[]');
+      const savedUser = JSON.parse(localStorage.getItem(USER_KEY) || '{"loggedIn":false}');
+
+      return {
+        // UI state
+        query:'', filters:{category:'',size:'',color:''},
+        cartOpen:false, authOpen:false, checkoutOpen:false, authTab:'login',
+
+        // Data
+        cart: savedCart,
+        user: savedUser,
+        login:{email:'',password:''},
+        register:{name:'',email:'',password:''},
+        shipping:{name:'',email:'',address:'',city:'',postcode:'',country:'UK'},
+
+        // Demo products
+        products:[
+          {id:1, name:'Seamless Comfort Bra', category:'bra', size:'S', color:'Black', price:24.00, affiliate:false},
+          {id:2, name:'Lace Balcony Bra', category:'bra', size:'M', color:'Rose', price:34.00, affiliate:false},
+          {id:3, name:'Satin Sleep Chemise', category:'sleep', size:'L', color:'Wine', price:42.00, affiliate:true, url:'https://example-partner.com/chemise?aff=intimacysecret'},
+          {id:4, name:'Cotton Bikini Panty (3‑pack)', category:'panty', size:'M', color:'Ivory', price:18.00, affiliate:false},
+          {id:5, name:'Sheer Lace Set', category:'set', size:'S', color:'Black', price:49.00, affiliate:true, url:'https://example-partner.com/lace-set?aff=intimacysecret'},
+          {id:6, name:'Everyday T‑Shirt Bra', category:'bra', size:'L', color:'Ivory', price:28.00, affiliate:false},
+          {id:7, name:'High‑Rise Brief', category:'panty', size:'XL', color:'Black', price:12.00, affiliate:false},
+          {id:8, name:'Silk Robe', category:'sleep', size:'M', color:'Rose', price:59.00, affiliate:true, url:'https://example-partner.com/silk-robe?aff=intimacysecret'}
+        ],
+
+        // Computed + helpers
+        filtered(){
+          return this.products.filter(p=>{
+            const q = this.query.trim().toLowerCase();
+            const hit = !q || [p.name,p.category,p.color,p.size].join(' ').toLowerCase().includes(q);
+            const okCat = !this.filters.category || p.category === this.filters.category;
+            const okSize = !this.filters.size || p.size === this.filters.size;
+            const okColor = !this.filters.color || p.color === this.filters.color;
+            return hit && okCat && okSize && okColor;
+          });
+        },
+        resetFilters(){ this.filters={category:'',size:'',color:''}; this.query=''; },
+        format(v){ return new Intl.NumberFormat(undefined,{style:'currency',currency:'USD'}).format(v); },
+
+        // Cart
+        add(p){
+          if(p.affiliate){ window.open(p.url,'_blank','noopener'); return; }
+          const ex = this.cart.find(i=>i.id===p.id);
+          if(ex) ex.qty = Math.min(10,(ex.qty||1)+1); else this.cart.push({...p, qty:1});
+          this.saveCart(); this.cartOpen=true;
+        },
+        remove(i){ this.cart.splice(i,1); this.saveCart(); },
+        cartQty(){ return this.cart.reduce((n,i)=>n+(i.qty||1),0); },
+        total(){ return this.cart.reduce((s,i)=>s+i.price*(i.qty||1),0); },
+        saveCart(){ localStorage.setItem(CART_KEY, JSON.stringify(this.cart)); },
+
+        // Checkout
+        openCheckout(){ this.cartOpen=false; this.checkoutOpen=true; this.$refs.checkoutDialog.showModal?.(); },
+        placeOrder(){
+          if(!this.shipping.name || !this.shipping.email || !this.shipping.address){ alert('Please complete shipping details.'); return; }
+          // Demo order payload
+          const order = { id: 'ORD-' + Math.random().toString(36).slice(2,8).toUpperCase(),
+            at: new Date().toISOString(), user:this.user, items:this.cart, shipping:this.shipping, subtotal:this.total() };
+          console.log('Demo order', order);
+          alert('Thank you! Your order '+order.id+' was placed (demo).');
+          this.cart = []; this.saveCart(); this.checkoutOpen=false;
+        },
+
+        // Auth (demo) + Netlify Identity support
+        openAuth(){ this.authOpen=true; this.$refs.authDialog.showModal?.(); },
+        loginUser: function(){
+          if(window.netlifyIdentity){ window.netlifyIdentity.open('login'); return; }
+          if(!this.login.email || !this.login.password){ alert('Enter email & password'); return; }
+          this.user={loggedIn:true,email:this.login.email,name:this.user.name||''};
+          localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+          this.authOpen=false;
+        },
+        registerUser: function(){
+          if(window.netlifyIdentity){ window.netlifyIdentity.open('signup'); return; }
+          if(!this.register.name || !this.register.email || !this.register.password){ alert('Fill all fields'); return; }
+          this.user={loggedIn:true,email:this.register.email,name:this.register.name};
+          localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+          this.authOpen=false;
+        },
+        logoutUser: function(){
+          if(window.netlifyIdentity){ window.netlifyIdentity.logout(); }
+          this.user={loggedIn:false};
+          localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+        },
+
+        // Affiliate click stub
+        trackAffiliate(p){ console.log('Affiliate click', p); },
+
+        // Init
+        init(){
+          // Hook Netlify Identity events if available
+          if(window.netlifyIdentity){
+            window.netlifyIdentity.on('login', user=>{
+              const email = user?.email || user?.user_metadata?.full_name || 'User';
+              this.user={loggedIn:true,email:email,name:user?.user_metadata?.full_name||''};
+              localStorage.setItem(USER_KEY, JSON.stringify(this.user));
+              this.authOpen=false; this.$root?.focus();
+            });
+            window.netlifyIdentity.on('logout', ()=>{
+              this.logoutUser();
+            });
+          }
+        }
+      }
+    }
+  </script>
+</body>
+</html>
